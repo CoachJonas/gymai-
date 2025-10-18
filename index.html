@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gym AI – Ein-Datei-App</title>
+<style>
+:root{--bg:#0b1220;--panel:#111a2e;--muted:#9fb3c8;--text:#e9f1ff;--accent:#4da3ff;--ok:#1ec28b;--warn:#ffcc66}
+*{box-sizing:border-box;font-family:-apple-system,system-ui,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif}
+body{margin:0;background:var(--bg);color:var(--text)}
+header{position:sticky;top:0;z-index:5;background:#0b1220cc;backdrop-filter:blur(6px);border-bottom:1px solid #1b2747;padding:12px 14px}
+h1{margin:0;font-size:18px;font-weight:800;display:flex;gap:8px;align-items:center}
+.badge{font-size:12px;background:#102043;border:1px solid #1b2a50;color:#9fc4ff;padding:2px 8px;border-radius:999px}
+.wrap{max-width:900px;margin:0 auto;padding:14px}
+.card{background:var(--panel);border:1px solid #1b2747;border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button{background:#2a67ff;color:#fff;border:0;border-radius:12px;padding:10px 14px;font-weight:700}
+button.ghost{background:#0f1933;color:#cfe2ff;border:1px solid #1b2747}
+input,select,textarea{width:100%;background:#0b152c;border:1px solid #1b2747;border-radius:10px;color:var(--text);padding:10px}
+.small{color:var(--muted);font-size:12px}
+.grid{display:grid;gap:10px}
+.ex{background:#0f1933;border:1px solid #1b2747;border-radius:12px;padding:10px}
+.ex h3{margin:0 0 6px;font-size:16px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+footer{color:#6f87a6;text-align:center;padding:20px 0 40px}
+dialog{border:none;border-radius:14px;background:#0e1731;color:var(--text);max-width:800px;width:92%;padding:0}
+dialog header{padding:12px;border-bottom:1px solid #203058}
+dialog .content{padding:12px}
+@media(min-width:760px){.grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header><h1>Gym AI <span class="badge">Single-File</span></h1></header>
+<div class="wrap">
+  <div class="row">
+    <button id="btnImport">Backup-Text einfügen</button>
+    <button id="btnExport" class="ghost">CSV Export</button>
+    <button id="btnHome" class="ghost">Zum Home-Bildschirm</button>
+  </div>
+  <p class="small">Offline-fähig. Daten bleiben lokal. Smart-Progression pro Übung: halten / +1 kg / +2,5 kg / −1 kg.</p>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <select id="session">
+          <option value="night_upper">Nachtschicht – Oberkörper</option>
+          <option value="night_lower">Nachtschicht – Unterkörper</option>
+          <option value="free_pull">Freie Tage – Pull</option>
+          <option value="free_push">Freie Tage – Push</option>
+          <option value="free_legs">Freie Tage – Beine</option>
+        </select>
+        <button id="btnSuggest" class="ghost">Empfehlen</button>
+      </div>
+      <button id="btnLoad">Plan laden</button>
+    </div>
+    <div id="coverage" class="small"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="badge" id="today">–</div>
+      <button id="btnAddSet" class="ghost">+ Satz</button>
+    </div>
+    <div id="plan" class="grid" style="margin-top:10px"></div>
+    <button id="btnSave" class="ghost">Sätze speichern</button>
+  </div>
+
+  <footer>© Gym AI</footer>
+</div>
+
+<dialog id="dlg">
+  <header><b>Backup-Text einfügen</b></header>
+  <div class="content">
+    <p class="small">Füge deinen CSV hier ein (erste Zeile: date,sessionId,exerciseId,weight,reps,note). Dann „Importieren“.</p>
+    <textarea id="ta" rows="12" placeholder='"date","sessionId","exerciseId","weight","reps","note"
+"2025-10-04","night_upper","incl_db","45","10-10-10",""'></textarea>
+    <div class="row" style="justify-content:flex-end">
+      <button id="dlgClose" class="ghost">Schließen</button>
+      <button id="dlgOk">Importieren</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+const $=s=>document.querySelector(s);
+const LS_KEY="gymai.logs.csv.v1";
+const LS_LAST="gymai.last.session";
+const planEl=$("#plan"), todayEl=$("#today"), sessionSel=$("#session"), coverageEl=$("#coverage");
+
+const TARGETS={
+  night_upper:[["incl_db","Incline DB Press","3×6–10"],["pullup","Pull-ups/Lat","3×6–10"],["row_low","Low Row","3×8–12"],["ohp","Overhead Press","3×6–10"],["laterals","Lateral Raise","2×12–15"],["facepull","Face Pulls","2×12–15"]],
+  night_lower:[["squat_press2","Squat/Leg Press","3×6–10"],["rdl2","RDL/Stiff-leg DL","3×6–10"],["legext2","Leg Extension","2×12–15"],["legcurl2","Leg Curl","3×8–12"],["calf_stand","Calf Raise (stand)","4×10–20"],["abs2","Abs","3×12–20"]],
+  free_pull:[["lat_narrow","Lat Pulldown (narrow)","3×6–10"],["row_tbar","T-Bar/Low Row","4×8–15"],["pullup_w","Pull-ups (wide/neutral)","3×6–10"],["shrugs","Shrugs","3×10–12"],["bi_curls","Biceps Curls","3×10–12"],["hammer","Hammer Curls","3×10–12"],["cable_pullover","Cable Pull-over","3×12–15"]],
+  free_push:[["bench_db","DB Bench","4×6–10"],["incl_db","Incline DB","4×6–10"],["dips","Dips","3×8–12"],["ohp","Overhead Press","3×6–10"],["laterals","Lateral Raise","3×12–15"],["pushdown","Triceps Pushdown","3×8–12"]],
+  free_legs:[["squat_press2","Squat/Leg Press","4×6–10"],["front","Front Squat","3×8–12"],["legext2","Leg Extension","3×12–15"],["legcurl2","Leg Curl","3×10–12"],["calf_stand","Calf Raise (stand)","4×10–20"],["calf_sit","Calf Raise (sit)","3×10–20"],["rope_crunch","Rope Crunch","3×10–15"],["abs2","Abs","3×12–20"]],
+};
+
+function loadCSV(){return localStorage.getItem(LS_KEY)||""}
+function saveCSV(csv){localStorage.setItem(LS_KEY,csv)}
+function parseCSV(csv){
+  const lines=csv.trim().split(/\r?\n/); if(!lines.length) return [];
+  const out=[]; let start=0;
+  if(lines[0].toLowerCase().includes("date")) start=1;
+  for(let i=start;i<lines.length;i++){
+    const m=lines[i].match(/^"?(.*?)"?,"?(.*?)"?,"?(.*?)"?,"?(.*?)"?,"?(.*?)"?,"?(.*?)"?$/); if(!m) continue;
+    const [_,date,sessionId,exerciseId,weight,reps,note]=m;
+    out.push({date,sessionId,exerciseId,weight:parseFloat(weight)||0,reps:String(reps||""),note:note||""});
+  }
+  return out;
+}
+function lastByExercise(rows){const map={};rows.forEach(r=>map[r.exerciseId]=r);return map}
+
+function suggestNext(exId, rows){
+  const hist=rows.filter(r=>r.exerciseId===exId).sort((a,b)=>a.date>b.date?-1:1);
+  if(!hist.length) return {weight:"", hint:"neu einarbeiten"};
+  const last=hist[0], reps=last.reps.split(/-|,/).map(x=>parseInt(x,10)||0).filter(Boolean);
+  const min=Math.min(...reps), max=Math.max(...reps);
+  let delta=0;
+  if(reps.length>=3 && reps.every(r=>r>=10)) delta=+2.5;
+  else if(max>=10 && min>=6) delta=+1;
+  else if(min<6) delta=-1;
+  const next=Math.max(0,(+last.weight)+delta);
+  const msg=delta>0?`+${delta} kg`:delta<0?`${delta} kg`:`halten`;
+  return {weight:String(next), hint:`letztes Mal ${last.weight} kg • ${last.reps} → ${msg}`};
+}
+
+function renderPlan(){
+  const sid=sessionSel.value;
+  localStorage.setItem(LS_LAST,sid);
+  const csv=loadCSV(); const rows=parseCSV(csv);
+  const last=lastByExercise(rows);
+  const today=new Date().toISOString().slice(0,10);
+  $("#today").textContent=`${sessionSel.options[sessionSel.selectedIndex].text} · ${today}`;
+  planEl.innerHTML="";
+  (TARGETS[sid]||[]).forEach(([id,name,target])=>{
+    const s=suggestNext(id, rows);
+    const ex=document.createElement("div"); ex.className="ex";
+    ex.innerHTML=`
+      <h3>${name}<span class="badge">Ziel ${target}</span></h3>
+      <div class="small">${s.hint}</div>
+      <div class="row3" style="margin-top:6px">
+        <input placeholder="Wdh">
+        <input placeholder="Wdh">
+        <input placeholder="Wdh">
+      </div>
+      <div class="row2" style="margin-top:6px">
+        <input placeholder="Gewicht (kg)" value="${s.weight}">
+        <input placeholder="Notiz (optional)">
+      </div>
+    `;
+    ex.dataset.ex=id;
+    planEl.appendChild(ex);
+  });
+  updateCoverage(rows);
+}
+
+function updateCoverage(rows){
+  const now=new Date(); const week=7*24*3600*1000;
+  const past=(rows||parseCSV(loadCSV())).filter(r=> now - new Date(r.date) <= week);
+  const c={push:0,pull:0,legs:0};
+  for(const r of past){
+    if(r.sessionId.includes("push")) c.push++;
+    if(r.sessionId.includes("pull")||r.sessionId.includes("upper")) c.pull++;
+    if(r.sessionId.includes("legs")||r.sessionId.includes("lower")) c.legs++;
+  }
+  coverageEl.textContent=`Abdeckung (7T): Push ${c.push}/2 · Pull ${c.pull}/2 · Beine ${c.legs}/2`;
+}
+
+$("#btnImport").onclick=()=>{$("#ta").value="";$("#dlg").showModal()};
+$("#dlgClose").onclick=()=>$("#dlg").close();
+$("#dlgOk").onclick=()=>{
+  const txt=$("#ta").value.trim(); if(!txt){alert("Bitte CSV einfügen.");return}
+  // akzeptiere CSV mit/ohne Header
+  let csv=txt;
+  if(!txt.toLowerCase().startsWith("date")) csv=`"date","sessionId","exerciseId","weight","reps","note"\n`+txt;
+  saveCSV(csv); alert("Import ok."); $("#dlg").close(); renderPlan();
+};
+
+$("#btnExport").onclick=()=>{
+  const csv=loadCSV(); if(!csv){alert("Keine Daten vorhanden.");return}
+  const blob=new Blob([csv],{type:"text/csv"}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download="training_logs.csv"; a.click(); URL.revokeObjectURL(url);
+};
+
+$("#btnLoad").onclick=renderPlan;
+$("#btnAddSet").onclick=()=>{document.querySelectorAll(".ex .row3").forEach(row=>{
+  if(row.children.length<4){const i=document.createElement("input"); i.placeholder="Wdh"; row.appendChild(i);}
+})};
+$("#btnSuggest").onclick=()=>{
+  // einfache Empfehlung: welche Kategorie zuletzt am wenigsten in 7 Tagen
+  const rows=parseCSV(loadCSV());
+  const now=new Date(),week=7*24*3600*1000;
+  const last7=rows.filter(r=> now - new Date(r.date) <= week);
+  const cnt={night_upper:0,night_lower:0,free_pull:0,free_push:0,free_legs:0};
+  last7.forEach(r=>{ if(cnt[r.sessionId]!=null) cnt[r.sessionId]++; });
+  const order=Object.entries(cnt).sort((a,b)=>a[1]-b[1]);
+  if(order.length){ sessionSel.value=order[0][0]; renderPlan(); }
+};
+
+$("#btnHome").onclick=()=>alert('In Safari: Teilen (Quadrat mit Pfeil) → „Zum Home-Bildschirm“. Dann über die Kachel öffnen.');
+
+sessionSel.value=localStorage.getItem(LS_LAST)||"night_upper";
+renderPlan();
+</script>
+</body>
+</html>
