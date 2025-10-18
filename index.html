@@ -1,1 +1,312 @@
 
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Gym AI – v13.11 Single-File</title>
+<meta name="theme-color" content="#0b1220" />
+<style>
+:root{
+  --bg:#0b1220;--panel:#111a2e;--mut:#9fb3c8;--txt:#e9f1ff;--b:#1b2747;--a:#4da3ff;--ok:#1ec28b;--warn:#ffc66b;--err:#ff6b6b
+}
+*{box-sizing:border-box;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Inter,Helvetica,Arial}
+body{margin:0;background:var(--bg);color:var(--txt)}
+h1{font-size:20px;margin:14px 16px}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#162446;color:#9ecbff;font-size:12px;margin-left:6px}
+.wrap{max-width:900px;margin:0 auto;padding:0 12px 80px}
+.card{background:var(--panel);border:1px solid var(--b);border-radius:14px;margin:12px 0;padding:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{background:#0b65d4;color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700}
+.btn.ghost{background:transparent;border:1px solid var(--b);color:#cfe2ff}
+.btn.ok{background:var(--ok);color:#031b10}
+.btn.warn{background:#1b2747;color:#ffd78b;border:1px dashed #384a74}
+.sel, input[type="number"], input[type="text"], textarea{
+  width:100%;background:#0d1730;color:var(--txt);border:1px solid var(--b);border-radius:10px;padding:10px
+}
+label{display:block;font-size:12px;color:var(--mut);margin:8px 2px 4px}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
+@media(max-width:720px){.grid{grid-template-columns:1fr 1fr}}
+.small{font-size:12px;color:var(--mut)}
+.kpill{font-size:12px;color:#cfe2ff;background:#0f1b35;padding:4px 8px;border:1px solid var(--b);border-radius:999px}
+.head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+h2{margin:6px 0 4px;font-size:18px}
+hr{border:0;border-top:1px solid var(--b);margin:10px 0}
+.note{font-size:12px;color:#9fb3c8}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;background:#0f1b35;border:1px solid var(--b);color:#cfe2ff;padding:10px 14px;border-radius:10px;display:none}
+.kv{display:flex;gap:8px;flex-wrap:wrap}
+.kv span{background:#0f1b35;border:1px solid var(--b);padding:6px 10px;border-radius:10px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Gym AI <span class="badge">v13.11 Single-File</span></h1>
+
+  <div class="card">
+    <div class="row">
+      <button class="btn" id="btnImport">Backup-Text einfügen</button>
+      <button class="btn ghost" id="btnExport">CSV Export</button>
+      <button class="btn ghost" id="btnPWA">Zum Home-Bildschirm</button>
+    </div>
+    <div class="note" style="margin-top:8px">
+      Offline-fähig • Daten bleiben lokal • <b>Auto-Progression</b> je Übung (halten / +1 kg / +2.5 kg / −1 kg / −2.5 kg).
+    </div>
+  </div>
+
+  <div class="card" id="recoCard">
+    <div class="head">
+      <h2 style="margin:0">Heutiger Plan</h2>
+      <button class="btn warn" id="btnLoad">Plan laden</button>
+    </div>
+    <div class="kv" id="coverage" style="margin-top:6px"></div>
+  </div>
+
+  <div id="workout"></div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ========= Nutzdaten (dein Log) – bereits eingebettet ========= */
+const embeddedBackup = {
+  version: "13.10-import",
+  created: "2025-10-17T00:00:00Z",
+  logs: [
+    {"date":"2025-10-04","sessionId":"night_upper","exerciseId":"incl_db","weight":45.0,"reps":[10,10,10],"note":""},
+    {"date":"2025-10-04","sessionId":"night_upper","exerciseId":"pullup","weight":87.5,"reps":[8,8,9],"note":""},
+    {"date":"2025-10-04","sessionId":"night_upper","exerciseId":"row_low","weight":40.0,"reps":[9,9,10],"note":""},
+    {"date":"2025-10-04","sessionId":"night_upper","exerciseId":"ohp","weight":35.0,"reps":[10,10,10],"note":""},
+    {"date":"2025-10-04","sessionId":"night_upper","exerciseId":"laterals","weight":15.0,"reps":[12,12],"note":""},
+    {"date":"2025-10-04","sessionId":"night_upper","exerciseId":"facepull","weight":23.0,"reps":[15,15],"note":""},
+    {"date":"2025-10-06","sessionId":"night_upper","exerciseId":"pullup","weight":87.5,"reps":[10,9,10],"note":""},
+    {"date":"2025-10-06","sessionId":"night_upper","exerciseId":"row_low","weight":42.5,"reps":[10,10,10],"note":""},
+    {"date":"2025-10-06","sessionId":"night_upper","exerciseId":"incl_db","weight":47.5,"reps":[6,7,10],"note":""},
+    {"date":"2025-10-06","sessionId":"night_upper","exerciseId":"ohp","weight":37.5,"reps":[8,9,10],"note":""},
+    {"date":"2025-10-06","sessionId":"night_upper","exerciseId":"laterals","weight":12.25,"reps":[15,13],"note":""},
+    {"date":"2025-10-06","sessionId":"night_upper","exerciseId":"facepull","weight":25.0,"reps":[15,14],"note":""},
+    {"date":"2025-10-06","sessionId":"night_upper","exerciseId":"cable_pullover","weight":27.0,"reps":[15,15,15],"note":""},
+    {"date":"2025-10-08","sessionId":"free_pull","exerciseId":"lat_narrow","weight":90.0,"reps":[8,7,9],"note":"Latzug Maschine UG"},
+    {"date":"2025-10-08","sessionId":"free_pull","exerciseId":"row_tbar","weight":30.0,"reps":[10,10,10,10],"note":"Low Row Maschine  im sitzen"},
+    {"date":"2025-10-08","sessionId":"free_pull","exerciseId":"pullup_w","weight":23.0,"reps":[9,10,10,10],"note":"Maschine OG -23"},
+    {"date":"2025-10-08","sessionId":"free_pull","exerciseId":"rdl2","weight":25.0,"reps":[10,10,10,10],"note":"Eisenstange UG; letzter Satz +2;5kg"},
+    {"date":"2025-10-08","sessionId":"free_pull","exerciseId":"shrugs","weight":22.5,"reps":[10,10,12],"note":"22;5kg Hantel  "},
+    {"date":"2025-10-08","sessionId":"free_pull","exerciseId":"bi_curls","weight":12.5,"reps":[12,12,12],"note":"Carl Maschine UG"},
+    {"date":"2025-10-08","sessionId":"free_pull","exerciseId":"hammer","weight":10.0,"reps":[10,10,12],"note":"10kg Hantel "},
+    {"date":"2025-10-08","sessionId":"free_pull","exerciseId":"cable_pullover","weight":32.0,"reps":[15,15,15],"note":""},
+    {"date":"2025-10-09","sessionId":"free_legs","exerciseId":"squat_press2","weight":22.5,"reps":[10,10,10,10],"note":""},
+    {"date":"2025-10-09","sessionId":"free_legs","exerciseId":"front","weight":22.5,"reps":[11,11,11],"note":""},
+    {"date":"2025-10-09","sessionId":"free_legs","exerciseId":"legext2","weight":55.0,"reps":[13,13,13],"note":""},
+    {"date":"2025-10-09","sessionId":"free_legs","exerciseId":"legcurl2","weight":10.0,"reps":[11,11,11],"note":""},
+    {"date":"2025-10-09","sessionId":"free_legs","exerciseId":"calf_stand","weight":85.0,"reps":[14,14,14,14],"note":""},
+    {"date":"2025-10-09","sessionId":"free_legs","exerciseId":"calf_sit","weight":25.0,"reps":[12,12,12,12],"note":""},
+    {"date":"2025-10-09","sessionId":"free_legs","exerciseId":"rope_crunch","weight":38.5,"reps":[13,13,13],"note":""},
+    {"date":"2025-10-09","sessionId":"free_legs","exerciseId":"abs2","weight":5.0,"reps":[14,14,14],"note":"Unterbauch "},
+    {"date":"2025-10-11","sessionId":"free_pull","exerciseId":"pullup_w","weight":20.3,"reps":[6,7,8,10],"note":""},
+    {"date":"2025-10-11","sessionId":"free_pull","exerciseId":"row_tbar","weight":35.0,"reps":[15,15,13,11],"note":""},
+    {"date":"2025-10-11","sessionId":"free_pull","exerciseId":"lat_narrow","weight":90.0,"reps":[8,8,9],"note":""},
+    {"date":"2025-10-11","sessionId":"free_pull","exerciseId":"rdl2","weight":27.5,"reps":[12,12,11,12],"note":""},
+    {"date":"2025-10-11","sessionId":"free_pull","exerciseId":"shrugs","weight":24.0,"reps":[8,10,14],"note":""},
+    {"date":"2025-10-11","sessionId":"free_pull","exerciseId":"bi_curls","weight":13.75,"reps":[12,12,12],"note":""},
+    {"date":"2025-10-11","sessionId":"free_pull","exerciseId":"hammer","weight":12.0,"reps":[8,9,10],"note":""},
+    {"date":"2025-10-11","sessionId":"free_pull","exerciseId":"cable_pullover","weight":36.0,"reps":[15,15,15],"note":""},
+    {"date":"2025-10-11","sessionId":"free_pull","exerciseId":"rope_crunch","weight":41.0,"reps":[11,10,10],"note":""},
+    {"date":"2025-10-13","sessionId":"night_upper","exerciseId":"incl_db","weight":47.5,"reps":[10,10,7],"note":""},
+    {"date":"2025-10-13","sessionId":"night_upper","exerciseId":"pullup","weight":90.0,"reps":[10,8,7],"note":""},
+    {"date":"2025-10-13","sessionId":"night_upper","exerciseId":"row_low","weight":45.0,"reps":[10,10,9],"note":""},
+    {"date":"2025-10-13","sessionId":"night_upper","exerciseId":"ohp","weight":40.0,"reps":[10,10,7],"note":""},
+    {"date":"2025-10-13","sessionId":"night_upper","exerciseId":"laterals","weight":14.0,"reps":[12],"note":""},
+    {"date":"2025-10-13","sessionId":"night_upper","exerciseId":"facepull","weight":27.0,"reps":[12,14],"note":""}
+  ]
+};
+
+/* ========= Minimaler Plan + Ziel-Wdh je Übung ========= */
+const plan = [
+  {id:"incl_db", name:"Incline DB Press",        target:[6,10], sets:3},
+  {id:"pullup",  name:"Pull-ups/Lat",            target:[6,10], sets:3},
+  {id:"row_low", name:"Low Row",                 target:[8,12], sets:3},
+  {id:"ohp",     name:"Overhead Press",          target:[6,10], sets:3},
+  {id:"laterals",name:"Lateral Raise",           target:[12,15],sets:2},
+  {id:"facepull",name:"Face Pulls",              target:[12,15],sets:2}
+];
+
+/* ========= State ========= */
+const LS_KEY="gymai_v1311_state";
+let state = { logs:[], today:[], lastImport:"" };
+
+/* ===== Utils ===== */
+const $ = sel => document.querySelector(sel);
+const toast = (msg)=>{const t=$("#toast");t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2200);}
+const loadState = ()=>{
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){ state=JSON.parse(raw); }
+    if(!state.logs?.length){
+      state.logs = embeddedBackup.logs.slice(); // deine Daten sofort drin
+      state.lastImport = "embedded";
+      saveState();
+    }
+  }catch(e){ console.warn(e); }
+}
+const saveState = ()=>localStorage.setItem(LS_KEY, JSON.stringify(state));
+
+/* ===== Progression =====
+   Regeln:
+   - Wenn alle Sätze >= oberes Ziel → +2.5 kg
+   - Wenn Ø Reps >= oberes Ziel-1 → +1 kg
+   - Wenn irgendein Satz < unteres Ziel-1 → −2.5 kg
+   - Wenn Ø Reps < unteres Ziel → −1 kg
+   - Sonst: halten
+*/
+function suggestNext(exId, target){
+  const logs = state.logs.filter(l=>l.exerciseId===exId).sort((a,b)=>a.date<b.date?1:-1);
+  if(!logs.length) return {weight:"—", reps:target.join("–"), hint:"neu einarbeiten"};
+  const last = logs[0];
+  const min=target[0], max=target[1];
+  const reps = last.reps;
+  const avg = reps.reduce((s,x)=>s+x,0)/reps.length;
+  let delta = 0;
+  if(reps.every(r=>r>=max)) delta = +2.5;
+  else if(avg >= (max-1))   delta = +1;
+  else if(reps.some(r=>r < (min-1))) delta = -2.5;
+  else if(avg <  min)       delta = -1;
+  const nextW = (typeof last.weight==="number") ? (Math.round((last.weight+delta)*20)/20) : "—";
+  let hint = delta>0?`+${delta} kg`: (delta<0?`${delta} kg`:"halten");
+  return {weight: nextW, reps:`Ziel ${reps.length}×${min}–${max}`, hint};
+}
+
+/* ===== UI ===== */
+function renderWorkout(){
+  const host = $("#workout");
+  host.innerHTML = "";
+  plan.forEach(ex=>{
+    const s = suggestNext(ex.id, ex.target);
+    const card = document.createElement("div");
+    card.className="card";
+    card.innerHTML = `
+      <div class="head">
+        <h2>${ex.name}</h2>
+        <span class="kpill">${s.reps}</span>
+      </div>
+      <div class="note">Vorschlag: <b>${s.weight} kg</b> • ${s.hint}</div>
+      <div class="grid" style="margin-top:8px">
+        ${Array.from({length:ex.sets}).map((_,i)=>`
+          <div>
+            <label>Satz ${i+1} Wdh</label>
+            <input type="number" inputmode="numeric" class="rep" data-ex="${ex.id}" data-idx="${i}" placeholder="—">
+          </div>`).join("")}
+        <div>
+          <label>Gewicht (kg)</label>
+          <input type="number" inputmode="decimal" class="kg" data-ex="${ex.id}" placeholder="${s.weight}">
+        </div>
+        <div style="grid-column:1/-1">
+          <label>Notiz (optional)</label>
+          <input type="text" class="noteField" data-ex="${ex.id}" placeholder="">
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn save" data-ex="${ex.id}">Sätze speichern</button>
+      </div>
+    `;
+    host.appendChild(card);
+  });
+  updateCoverage();
+  host.querySelectorAll(".save").forEach(btn=>{
+    btn.addEventListener("click", onSaveSets);
+  });
+}
+
+function updateCoverage(){
+  const cov = $("#coverage");
+  const last7 = {};
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-7);
+  state.logs.forEach(l=>{
+    const d = new Date(l.date);
+    if(d>=cutoff){
+      // ganz grob: Oberkörper zählt als Push/Pull; hier vereinfachen wir:
+      if(["incl_db","ohp","laterals","facepull"].includes(l.exerciseId)) last7.push=(last7.push||0)+1;
+      if(["pullup","row_low","lat_narrow","row_tbar","cable_pullover","bi_curls","hammer","shrugs"].includes(l.exerciseId)) last7.pull=(last7.pull||0)+1;
+      if(["rdl2","squat_press2","front","legext2","legcurl2","calf_stand","calf_sit","abs2","rope_crunch"].includes(l.exerciseId)) last7.legs=(last7.legs||0)+1;
+    }
+  });
+  cov.innerHTML = "";
+  ["push","pull","legs"].forEach(k=>{
+    const v = last7[k]||0;
+    const target = (k==="legs")?2:2;
+    const good = v>=target;
+    const span = document.createElement("span");
+    span.textContent = (k==="push"?"Push":k==="pull"?"Pull":"Beine")+": "+v+"/"+target;
+    span.style.borderColor = good?"#1ec28b":"#384a74";
+    cov.appendChild(span);
+  });
+}
+
+function onSaveSets(e){
+  const ex = e.target.dataset.ex;
+  const card = e.target.closest(".card");
+  const reps = Array.from(card.querySelectorAll(`.rep[data-ex="${ex}"]`))
+               .map(i=>Number(i.value)).filter(n=>!isNaN(n)&&n>0);
+  const w = Number(card.querySelector(`.kg[data-ex="${ex}"]`).value);
+  const note = card.querySelector(`.noteField[data-ex="${ex}"]`).value||"";
+  if(!reps.length || isNaN(w)) { toast("Bitte Wdh & Gewicht eintragen."); return; }
+  const today = new Date().toISOString().slice(0,10);
+  state.logs.push({date: today, sessionId:"auto", exerciseId:ex, weight:w, reps, note});
+  saveState();
+  toast("Gespeichert ✓");
+  renderWorkout(); // Vorschlag aktualisieren
+}
+
+/* ===== Import / Export ===== */
+$("#btnImport").addEventListener("click", ()=>{
+  const txt = prompt("Backup-Text (JSON oder CSV) hier einfügen – dann OK.");
+  if(!txt){ return; }
+  try{
+    if(txt.trim().startsWith("{")){
+      const obj = JSON.parse(txt);
+      if(Array.isArray(obj.logs)){ state.logs = obj.logs; saveState(); toast("Import OK (JSON)"); renderWorkout(); return; }
+    }
+    // CSV sehr simpel: date,sessionId,exerciseId,weight,reps,note
+    if(txt.includes("date,") || txt.includes("\"date\"")){
+      const lines = txt.trim().split(/\r?\n/).filter(l=>!l.startsWith("date"));
+      const rows = [];
+      lines.forEach(line=>{
+        const parts = line.replace(/^"+|"+$/g,"").split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/g);
+        if(parts.length>=6){
+          rows.push({
+            date: parts[0].replace(/"/g,""),
+            sessionId: parts[1].replace(/"/g,""),
+            exerciseId: parts[2].replace(/"/g,""),
+            weight: Number(parts[3]),
+            reps: parts[4].replace(/"/g,"").split("-").map(x=>Number(x)),
+            note: (parts[5]||"").replace(/"/g,"")
+          });
+        }
+      });
+      if(rows.length){ state.logs = rows; saveState(); toast(`Import OK (${rows.length} Sätze)`); renderWorkout(); return; }
+    }
+    toast("Konnte die Daten nicht verstehen.");
+  }catch(err){ console.error(err); toast("Fehler beim Import."); }
+});
+
+$("#btnExport").addEventListener("click", ()=>{
+  const header = `date,sessionId,exerciseId,weight,reps,note`;
+  const lines = state.logs.map(l=>{
+    const reps = Array.isArray(l.reps)? l.reps.join("-") : l.reps;
+    const esc = s=>String(s||"").replace(/"/g,'""');
+    return `"${l.date}","${esc(l.sessionId)}","${esc(l.exerciseId)}","${l.weight}","${reps}","${esc(l.note)}"`;
+  });
+  const csv = [header, ...lines].join("\n");
+  navigator.clipboard.writeText(csv).then(()=>toast("CSV in Zwischenablage ✓"));
+});
+
+$("#btnLoad").addEventListener("click", ()=>{ renderWorkout(); toast("Plan geladen"); });
+
+$("#btnPWA").addEventListener("click", ()=>{
+  alert("iPhone: Teilen-Icon → „Zum Home-Bildschirm“");
+});
+
+/* ===== Start ===== */
+loadState();
+renderWorkout();
+</script>
+</body>
+</html>
