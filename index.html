@@ -1,43 +1,44 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Gym AI – Ein-Datei-App</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Gym AI v13.11 – Auto-Matching</title>
 <style>
-:root{--bg:#0b1220;--panel:#111a2e;--muted:#9fb3c8;--text:#e9f1ff;--accent:#4da3ff;--ok:#1ec28b;--warn:#ffcc66}
+:root{--bg:#0b1220;--panel:#111a2e;--mut:#9fb3c8;--txt:#e9f1ff;--b:#1b2747;--a:#4da3ff;--ok:#1ec28b;--warn:#ffcc66}
 *{box-sizing:border-box;font-family:-apple-system,system-ui,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif}
-body{margin:0;background:var(--bg);color:var(--text)}
-header{position:sticky;top:0;z-index:5;background:#0b1220cc;backdrop-filter:blur(6px);border-bottom:1px solid #1b2747;padding:12px 14px}
+body{margin:0;background:var(--bg);color:var(--txt)}
+header{position:sticky;top:0;z-index:5;background:#0b1220cc;backdrop-filter:blur(6px);border-bottom:1px solid var(--b);padding:12px 14px}
 h1{margin:0;font-size:18px;font-weight:800;display:flex;gap:8px;align-items:center}
 .badge{font-size:12px;background:#102043;border:1px solid #1b2a50;color:#9fc4ff;padding:2px 8px;border-radius:999px}
-.wrap{max-width:900px;margin:0 auto;padding:14px}
-.card{background:var(--panel);border:1px solid #1b2747;border-radius:14px;padding:12px;margin-bottom:12px}
+.wrap{max-width:980px;margin:0 auto;padding:14px}
+.card{background:var(--panel);border:1px solid var(--b);border-radius:14px;padding:12px;margin-bottom:12px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 button{background:#2a67ff;color:#fff;border:0;border-radius:12px;padding:10px 14px;font-weight:700}
-button.ghost{background:#0f1933;color:#cfe2ff;border:1px solid #1b2747}
-input,select,textarea{width:100%;background:#0b152c;border:1px solid #1b2747;border-radius:10px;color:var(--text);padding:10px}
-.small{color:var(--muted);font-size:12px}
+button.ghost{background:#0f1933;color:#cfe2ff;border:1px solid var(--b)}
+input,select,textarea{width:100%;background:#0b152c;border:1px solid var(--b);border-radius:10px;color:var(--txt);padding:10px}
+.small{color:var(--mut);font-size:12px}
 .grid{display:grid;gap:10px}
-.ex{background:#0f1933;border:1px solid #1b2747;border-radius:12px;padding:10px}
+.ex{background:#0f1933;border:1px solid var(--b);border-radius:12px;padding:10px}
 .ex h3{margin:0 0 6px;font-size:16px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 footer{color:#6f87a6;text-align:center;padding:20px 0 40px}
-dialog{border:none;border-radius:14px;background:#0e1731;color:var(--text);max-width:800px;width:92%;padding:0}
+dialog{border:none;border-radius:14px;background:#0e1731;color:var(--txt);max-width:800px;width:92%;padding:0}
 dialog header{padding:12px;border-bottom:1px solid #203058}
 dialog .content{padding:12px}
 @media(min-width:760px){.grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
-<header><h1>Gym AI <span class="badge">Single-File</span></h1></header>
+<header><h1>Gym AI <span class="badge">v13.11 Auto-Matching</span></h1></header>
 <div class="wrap">
   <div class="row">
     <button id="btnImport">Backup-Text einfügen</button>
     <button id="btnExport" class="ghost">CSV Export</button>
-    <button id="btnHome" class="ghost">Zum Home-Bildschirm</button>
+    <button id="btnHome" class="ghost">Zur Kachel hinzufügen (Hinweis)</button>
   </div>
-  <p class="small">Offline-fähig. Daten bleiben lokal. Smart-Progression pro Übung: halten / +1 kg / +2,5 kg / −1 kg.</p>
+  <p class="small">Offline • Daten bleiben lokal • Auto-Matching verbindet alte IDs/Labels mit dem Plan • Smart-Progression: halten / +1 kg / +2,5 kg / −1 kg</p>
 
   <div class="card">
     <div class="row" style="justify-content:space-between">
@@ -71,9 +72,8 @@ dialog .content{padding:12px}
 <dialog id="dlg">
   <header><b>Backup-Text einfügen</b></header>
   <div class="content">
-    <p class="small">Füge deinen CSV hier ein (erste Zeile: date,sessionId,exerciseId,weight,reps,note). Dann „Importieren“.</p>
-    <textarea id="ta" rows="12" placeholder='"date","sessionId","exerciseId","weight","reps","note"
-"2025-10-04","night_upper","incl_db","45","10-10-10",""'></textarea>
+    <p class="small">Füge deinen JSON oder CSV hier ein. App versteht beide. Danach „Importieren“.</p>
+    <textarea id="ta" rows="12" placeholder='{"version":"13.10-import", "logs":[...]}'></textarea>
     <div class="row" style="justify-content:flex-end">
       <button id="dlgClose" class="ghost">Schließen</button>
       <button id="dlgOk">Importieren</button>
@@ -83,123 +83,299 @@ dialog .content{padding:12px}
 
 <script>
 const $=s=>document.querySelector(s);
-const LS_KEY="gymai.logs.csv.v1";
-const LS_LAST="gymai.last.session";
+const LS_JSON="gymai.v13.logs.json";  // strukturierter Speicher (JSON)
+const LS_CSV ="gymai.v13.logs.csv";   // optionaler CSV-Schatten
+const LS_LAST="gymai.v13.last.session";
+
 const planEl=$("#plan"), todayEl=$("#today"), sessionSel=$("#session"), coverageEl=$("#coverage");
 
-const TARGETS={
-  night_upper:[["incl_db","Incline DB Press","3×6–10"],["pullup","Pull-ups/Lat","3×6–10"],["row_low","Low Row","3×8–12"],["ohp","Overhead Press","3×6–10"],["laterals","Lateral Raise","2×12–15"],["facepull","Face Pulls","2×12–15"]],
-  night_lower:[["squat_press2","Squat/Leg Press","3×6–10"],["rdl2","RDL/Stiff-leg DL","3×6–10"],["legext2","Leg Extension","2×12–15"],["legcurl2","Leg Curl","3×8–12"],["calf_stand","Calf Raise (stand)","4×10–20"],["abs2","Abs","3×12–20"]],
-  free_pull:[["lat_narrow","Lat Pulldown (narrow)","3×6–10"],["row_tbar","T-Bar/Low Row","4×8–15"],["pullup_w","Pull-ups (wide/neutral)","3×6–10"],["shrugs","Shrugs","3×10–12"],["bi_curls","Biceps Curls","3×10–12"],["hammer","Hammer Curls","3×10–12"],["cable_pullover","Cable Pull-over","3×12–15"]],
-  free_push:[["bench_db","DB Bench","4×6–10"],["incl_db","Incline DB","4×6–10"],["dips","Dips","3×8–12"],["ohp","Overhead Press","3×6–10"],["laterals","Lateral Raise","3×12–15"],["pushdown","Triceps Pushdown","3×8–12"]],
-  free_legs:[["squat_press2","Squat/Leg Press","4×6–10"],["front","Front Squat","3×8–12"],["legext2","Leg Extension","3×12–15"],["legcurl2","Leg Curl","3×10–12"],["calf_stand","Calf Raise (stand)","4×10–20"],["calf_sit","Calf Raise (sit)","3×10–20"],["rope_crunch","Rope Crunch","3×10–15"],["abs2","Abs","3×12–20"]],
+// Ziel-Plan (Bezeichner = sichtbarer Name)
+const PLAN={
+  night_upper:[
+    ["Schrägbankdrücken KH","3×6–10","incl_db"],
+    ["Klimmzüge/Latzug","3×6–10","pullup"],
+    ["Rudern Low Row","3×8–12","row_low"],
+    ["Schulterdrücken","3×6–10","ohp"],
+    ["Seitheben","2×12–15","laterals"],
+    ["Face Pulls","2×12–15","facepull"]
+  ],
+  night_lower:[
+    ["Kniebeugen/Beinpresse","3×6–10","squat_press2"],
+    ["Gestrecktes KH","3×6–10","rdl2"],
+    ["Beinstrecker","2×12–15","legext2"],
+    ["Beinbeuger","3×8–12","legcurl2"],
+    ["Waden stehend","4×10–20","calf_stand"],
+    ["Bauch","3×12–20","abs2"]
+  ],
+  free_pull:[
+    ["Latzug eng","3×6–10","lat_narrow"],
+    ["Rudern LH/T-Bar","4×8–15","row_tbar"],
+    ["Klimmzüge (weit/neutral/Maschine)","3×6–10","pullup_w"],
+    ["Shrugs","3×10–12","shrugs"],
+    ["Bizeps Curls","3×10–12","bi_curls"],
+    ["Hammer Curls","3×10–12","hammer"],
+    ["Überzüge am Kabelzug","3×12–15","cable_pullover"]
+  ],
+  free_push:[
+    ["Flachbankdrücken KH","4×6–10","bench_db"],
+    ["Schrägbankdrücken KH","4×6–10","incl_db"],
+    ["Dips","3×8–12","dips"],
+    ["Schulterdrücken","3×6–10","ohp"],
+    ["Seitheben","3×12–15","laterals"],
+    ["Trizepsdrücken","3×8–12","pushdown"]
+  ],
+  free_legs:[
+    ["Kniebeugen/Beinpresse","4×6–10","squat_press2"],
+    ["Frontkniebeugen","3×8–12","front"],
+    ["Beinstrecker","3×12–15","legext2"],
+    ["Beinbeuger","3×10–12","legcurl2"],
+    ["Waden stehend","4×10–20","calf_stand"],
+    ["Waden sitzend","3×10–20","calf_sit"],
+    ["Seil-Crunch","3×10–15","rope_crunch"],
+    ["Bauch","3×12–20","abs2"]
+  ]
 };
 
-function loadCSV(){return localStorage.getItem(LS_KEY)||""}
-function saveCSV(csv){localStorage.setItem(LS_KEY,csv)}
-function parseCSV(csv){
-  const lines=csv.trim().split(/\r?\n/); if(!lines.length) return [];
-  const out=[]; let start=0;
-  if(lines[0].toLowerCase().includes("date")) start=1;
-  for(let i=start;i<lines.length;i++){
-    const m=lines[i].match(/^"?(.*?)"?,"?(.*?)"?,"?(.*?)"?,"?(.*?)"?,"?(.*?)"?,"?(.*?)"?$/); if(!m) continue;
+// Aliase (sichtbarer Name → mögliche IDs / alte Bezeichnungen)
+const ALIASES = {
+  "Schrägbankdrücken KH": ["incl_db","incline_db","schrägbank_kh"],
+  "Klimmzüge/Latzug": ["pullup","lat_pull","pullups","lat_narrow","pullup_w"],
+  "Rudern Low Row": ["row_low","low_row","row_tbar","tbar_row"],
+  "Schulterdrücken": ["ohp","overhead_press","ohp_m"],
+  "Seitheben": ["laterals","side_raises","laterals_ds"],
+  "Face Pulls": ["facepull","reverse_flys","reverse_fly"],
+  "Überzüge am Kabelzug": ["cable_pullover","pullover_cable"],
+  "Latzug eng": ["lat_narrow","lat_narrow_machine","latzug_eng"],
+  "Rudern LH/T-Bar": ["row_tbar","tbar_row","low_row"],
+  "Klimmzüge (weit/neutral/Maschine)": ["pullup_w","assisted_pullup_wide","pullup"],
+  "Shrugs": ["shrugs"],
+  "Bizeps Curls": ["bi_curls","biceps_curl"],
+  "Hammer Curls": ["hammer","hammer_curl"],
+  "Kniebeugen/Beinpresse": ["squat_press2","leg_press","squat_press"],
+  "Frontkniebeugen": ["front"],
+  "Beinstrecker": ["legext2","leg_extension"],
+  "Beinbeuger": ["legcurl2","leg_curl"],
+  "Waden stehend": ["calf_stand","standing_calf"],
+  "Waden sitzend": ["calf_sit","seated_calf"],
+  "Seil-Crunch": ["rope_crunch","cable_crunch"],
+  "Bauch": ["abs2","abs"]
+};
+
+// ---- Speicher / Daten ----
+function loadJSON(){ try{ return JSON.parse(localStorage.getItem(LS_JSON)||'{"logs":[]}'); }catch(e){ return {"logs":[]}; } }
+function saveJSON(j){ localStorage.setItem(LS_JSON, JSON.stringify(j)); }
+function loadCSV(){ return localStorage.getItem(LS_CSV)||""; }
+function saveCSV(csv){ localStorage.setItem(LS_CSV,csv); }
+
+function toCSV(logs){
+  const head=`"date","sessionId","exerciseId","weight","reps","note"`;
+  const rows=logs.map(r=>`"${r.date}","${r.sessionId}","${r.exerciseId}","${r.weight}","${Array.isArray(r.reps)?r.reps.join('-'):r.reps}","${r.note||""}"`);
+  return [head,...rows].join("\n");
+}
+
+// string-Normalize (für robustes Matching)
+function norm(s){ return String(s||"").toLowerCase().replace(/\s+/g," ").replace(/[^a-z0-9äöüß\- ]/g,"").trim(); }
+
+// Mapping sichtbarer Plan-Name → beste exerciseId aus Logs
+function mapExerciseId(planLabel, logs){
+  const label = norm(planLabel);
+  // 1) direkte ALIASES
+  for(const key in ALIASES){
+    if(norm(key)===label){
+      const ids=ALIASES[key];
+      // falls mehrere IDs: wähle die, die in logs am häufigsten vorkommt
+      const counts={}; ids.forEach(id=>{
+        counts[id]=logs.filter(x=>x.exerciseId===id).length;
+      });
+      const pick = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+      return pick && pick[1]>0 ? pick[0] : ids[0];
+    }
+  }
+  // 2) heuristik: substring-treffer gegen bekannte IDs in Logs
+  const uniqIds=[...new Set(logs.map(x=>x.exerciseId))];
+  const scored = uniqIds.map(id=>{
+    const n=norm(id);
+    let score=0;
+    if(label.includes(n) || n.includes(label)) score+=2;
+    // kleine Heuristik für deutsche Begriffe
+    if((/bank|press|drueck/.test(label) && /bench|incl|press/.test(n))) score++;
+    if((/zug|pull|lat/.test(label) && /pull|lat/.test(n))) score++;
+    if((/rudern|row/.test(label) && /row/.test(n))) score++;
+    if((/wade|calf/.test(label) && /calf/.test(n))) score++;
+    return {id,score};
+  }).sort((a,b)=>b.score-a.score);
+  return (scored[0] && scored[0].score>0) ? scored[0].id : null;
+}
+
+// letzten Satz für exerciseId holen
+function lastSet(logs, exId){
+  const h = logs.filter(l=>l.exerciseId===exId).sort((a,b)=> (a.date<b.date?1:-1));
+  return h[0]||null;
+}
+
+// Smart-Progression
+function suggestNext(last){
+  if(!last) return {weight:"", hint:"neu einarbeiten"};
+  const reps = Array.isArray(last.reps) ? last.reps : String(last.reps).split(/[-,]/).map(x=>parseInt(x,10)||0);
+  const min = Math.min(...reps);
+  const max = Math.max(...reps);
+  let delta = 0;
+  if(reps.length>=3 && reps.every(r=>r>=10)) delta = +2.5;
+  else if(max>=10 && min>=6) delta = +1;
+  else if(min<6) delta = -1;
+  const next = Math.max(0, Number(last.weight||0)+delta);
+  const msg = delta>0?`+${delta} kg`:delta<0?`${delta} kg`:`halten`;
+  return {weight: String(next), hint:`letztes Mal ${last.weight||0} kg • ${reps.join("/") } → ${msg}`};
+}
+
+function parseInputText(txt){
+  txt=txt.trim();
+  // JSON?
+  if(txt.startsWith("{")||txt.startsWith("[")){
+    const j = JSON.parse(txt);
+    // ggf. CSV im Feld logs?
+    if(Array.isArray(j.logs)) return j.logs.map(x=>({
+      date: x.date,
+      sessionId: x.sessionId || sessionKeyFromLabel(x.session),
+      exerciseId: x.exerciseId || idFromAliases(x.exercise),
+      weight: Number(x.weight)||0,
+      reps: Array.isArray(x.reps)? x.reps : String(x.reps||"").split(/[-,]/).map(n=>parseInt(n,10)||0),
+      note: x.note||""
+    }));
+    // plain array
+    if(Array.isArray(j)) return j;
+    return [];
+  }
+  // CSV
+  const lines=txt.split(/\r?\n/).filter(Boolean);
+  if(!lines.length) return [];
+  const hasHead = /date.*session/i.test(lines[0]);
+  if(hasHead) lines.shift();
+  const out=[];
+  for(const line of lines){
+    const m=line.match(/^\"?(.*?)\"?,\"?(.*?)\"?,\"?(.*?)\"?,\"?(.*?)\"?,\"?(.*?)\"?,\"?(.*?)\"?$/);
+    if(!m) continue;
     const [_,date,sessionId,exerciseId,weight,reps,note]=m;
-    out.push({date,sessionId,exerciseId,weight:parseFloat(weight)||0,reps:String(reps||""),note:note||""});
+    out.push({
+      date, sessionId, exerciseId,
+      weight: Number(weight)||0,
+      reps: String(reps||"").split(/[-,]/).map(n=>parseInt(n,10)||0),
+      note: note||""
+    });
   }
   return out;
 }
-function lastByExercise(rows){const map={};rows.forEach(r=>map[r.exerciseId]=r);return map}
 
-function suggestNext(exId, rows){
-  const hist=rows.filter(r=>r.exerciseId===exId).sort((a,b)=>a.date>b.date?-1:1);
-  if(!hist.length) return {weight:"", hint:"neu einarbeiten"};
-  const last=hist[0], reps=last.reps.split(/-|,/).map(x=>parseInt(x,10)||0).filter(Boolean);
-  const min=Math.min(...reps), max=Math.max(...reps);
-  let delta=0;
-  if(reps.length>=3 && reps.every(r=>r>=10)) delta=+2.5;
-  else if(max>=10 && min>=6) delta=+1;
-  else if(min<6) delta=-1;
-  const next=Math.max(0,(+last.weight)+delta);
-  const msg=delta>0?`+${delta} kg`:delta<0?`${delta} kg`:`halten`;
-  return {weight:String(next), hint:`letztes Mal ${last.weight} kg • ${last.reps} → ${msg}`};
+function sessionKeyFromLabel(label){
+  const s = norm(label);
+  if(s.includes("oberkoerper")||s.includes("oberkörper")) return "night_upper";
+  if(s.includes("unterkoerper")||s.includes("unterkörper")) return "night_lower";
+  if(s.includes("pull")) return "free_pull";
+  if(s.includes("push")) return "free_push";
+  if(s.includes("bein")) return "free_legs";
+  return "free_pull";
+}
+function idFromAliases(exLabel){
+  const s=norm(exLabel);
+  for(const k in ALIASES){
+    if(norm(k)===s) return ALIASES[k][0];
+  }
+  return s.replace(/\s+/g,"_");
+}
+
+// Import/Export/UI
+const dlg=$("#dlg"), ta=$("#ta");
+$("#btnImport").onclick=()=>{ta.value=""; dlg.showModal();};
+$("#dlgClose").onclick=()=>dlg.close();
+$("#dlgOk").onclick=()=>{
+  try{
+    const txt=ta.value.trim();
+    if(!txt){ alert("Bitte JSON oder CSV einfügen."); return; }
+    const newLogs=parseInputText(txt);
+    const store = loadJSON();
+    store.logs = [...store.logs, ...newLogs].sort((a,b)=> (a.date<b.date?1:-1));
+    saveJSON(store);
+    saveCSV(toCSV(store.logs));
+    alert("Import ok: "+newLogs.length+" Sätze.");
+    dlg.close();
+    renderPlan();
+  }catch(e){
+    console.error(e); alert("Import fehlgeschlagen.");
+  }
+};
+
+$("#btnExport").onclick=()=>{
+  const store = loadJSON(); const csv = toCSV(store.logs||[]);
+  if(!csv){ alert("Keine Daten."); return; }
+  const blob=new Blob([csv],{type:"text/csv"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download="training_logs.csv"; a.click();
+  URL.revokeObjectURL(url);
+};
+
+$("#btnHome").onclick=()=>alert('Falls noch nicht als Kachel: Im Browser „Teilen“ → „Zum Home-Bildschirm“.');
+
+$("#btnAddSet").onclick=()=>{document.querySelectorAll(".ex .row3").forEach(row=>{
+  if(row.children.length<4){const i=document.createElement("input"); i.placeholder="Wdh"; row.appendChild(i);}
+})};
+
+$("#btnSuggest").onclick=()=>{
+  const store=loadJSON(), now=new Date(), week=7*24*3600*1000;
+  const cnt={night_upper:0,night_lower:0,free_pull:0,free_push:0,free_legs:0};
+  (store.logs||[]).forEach(r=>{ if(now - new Date(r.date) <= week && cnt[r.sessionId]!=null) cnt[r.sessionId]++; });
+  const order=Object.entries(cnt).sort((a,b)=>a[1]-b[1]);
+  if(order.length){ sessionSel.value=order[0][0]; renderPlan(); }
+};
+
+$("#btnLoad").onclick=renderPlan;
+$("#btnSave").onclick=()=>{
+  // speichert nur Notizen nicht; (Sets werden i.d.R. aus Historie gezogen – optionaler Edit später)
+  alert("Sätze werden aktuell automatisch aus der Historie gelesen. Manuelle Satzspeicherung folgt in v13.12.");
+};
+
+function coverage(rows){
+  const now=new Date(), week=7*24*3600*1000, c={push:0,pull:0,legs:0};
+  (rows||[]).forEach(r=>{
+    if(now - new Date(r.date) > week) return;
+    if(r.sessionId.includes("push")) c.push++;
+    if(r.sessionId.includes("pull")||r.sessionId.includes("upper")) c.pull++;
+    if(r.sessionId.includes("legs")||r.sessionId.includes("lower")) c.legs++;
+  });
+  return `Abdeckung (7T): Push ${c.push}/2 · Pull ${c.pull}/2 · Beine ${c.legs}/2`;
 }
 
 function renderPlan(){
-  const sid=sessionSel.value;
-  localStorage.setItem(LS_LAST,sid);
-  const csv=loadCSV(); const rows=parseCSV(csv);
-  const last=lastByExercise(rows);
+  const sid=sessionSel.value; localStorage.setItem(LS_LAST,sid);
+  const store=loadJSON(); const logs=store.logs||[];
   const today=new Date().toISOString().slice(0,10);
   $("#today").textContent=`${sessionSel.options[sessionSel.selectedIndex].text} · ${today}`;
+  coverageEl.textContent = coverage(logs);
+
   planEl.innerHTML="";
-  (TARGETS[sid]||[]).forEach(([id,name,target])=>{
-    const s=suggestNext(id, rows);
-    const ex=document.createElement("div"); ex.className="ex";
-    ex.innerHTML=`
-      <h3>${name}<span class="badge">Ziel ${target}</span></h3>
-      <div class="small">${s.hint}</div>
+  (PLAN[sid]||[]).forEach(([label,target,defaultId])=>{
+    const mappedId = mapExerciseId(label, logs) || defaultId;
+    const last = lastSet(logs, mappedId);
+    const sug = suggestNext(last);
+    const ex=document.createElement("div"); ex.className="ex"; ex.dataset.ex=mappedId;
+    ex.innerHTML = `
+      <h3>${label}<span class="badge">Ziel ${target}</span></h3>
+      <div class="small">${sug.hint}</div>
       <div class="row3" style="margin-top:6px">
         <input placeholder="Wdh">
         <input placeholder="Wdh">
         <input placeholder="Wdh">
       </div>
       <div class="row2" style="margin-top:6px">
-        <input placeholder="Gewicht (kg)" value="${s.weight}">
+        <input placeholder="Gewicht (kg)" value="${sug.weight}">
         <input placeholder="Notiz (optional)">
       </div>
     `;
-    ex.dataset.ex=id;
     planEl.appendChild(ex);
   });
-  updateCoverage(rows);
 }
 
-function updateCoverage(rows){
-  const now=new Date(); const week=7*24*3600*1000;
-  const past=(rows||parseCSV(loadCSV())).filter(r=> now - new Date(r.date) <= week);
-  const c={push:0,pull:0,legs:0};
-  for(const r of past){
-    if(r.sessionId.includes("push")) c.push++;
-    if(r.sessionId.includes("pull")||r.sessionId.includes("upper")) c.pull++;
-    if(r.sessionId.includes("legs")||r.sessionId.includes("lower")) c.legs++;
-  }
-  coverageEl.textContent=`Abdeckung (7T): Push ${c.push}/2 · Pull ${c.pull}/2 · Beine ${c.legs}/2`;
-}
-
-$("#btnImport").onclick=()=>{$("#ta").value="";$("#dlg").showModal()};
-$("#dlgClose").onclick=()=>$("#dlg").close();
-$("#dlgOk").onclick=()=>{
-  const txt=$("#ta").value.trim(); if(!txt){alert("Bitte CSV einfügen.");return}
-  // akzeptiere CSV mit/ohne Header
-  let csv=txt;
-  if(!txt.toLowerCase().startsWith("date")) csv=`"date","sessionId","exerciseId","weight","reps","note"\n`+txt;
-  saveCSV(csv); alert("Import ok."); $("#dlg").close(); renderPlan();
-};
-
-$("#btnExport").onclick=()=>{
-  const csv=loadCSV(); if(!csv){alert("Keine Daten vorhanden.");return}
-  const blob=new Blob([csv],{type:"text/csv"}); const url=URL.createObjectURL(blob);
-  const a=document.createElement("a"); a.href=url; a.download="training_logs.csv"; a.click(); URL.revokeObjectURL(url);
-};
-
-$("#btnLoad").onclick=renderPlan;
-$("#btnAddSet").onclick=()=>{document.querySelectorAll(".ex .row3").forEach(row=>{
-  if(row.children.length<4){const i=document.createElement("input"); i.placeholder="Wdh"; row.appendChild(i);}
-})};
-$("#btnSuggest").onclick=()=>{
-  // einfache Empfehlung: welche Kategorie zuletzt am wenigsten in 7 Tagen
-  const rows=parseCSV(loadCSV());
-  const now=new Date(),week=7*24*3600*1000;
-  const last7=rows.filter(r=> now - new Date(r.date) <= week);
-  const cnt={night_upper:0,night_lower:0,free_pull:0,free_push:0,free_legs:0};
-  last7.forEach(r=>{ if(cnt[r.sessionId]!=null) cnt[r.sessionId]++; });
-  const order=Object.entries(cnt).sort((a,b)=>a[1]-b[1]);
-  if(order.length){ sessionSel.value=order[0][0]; renderPlan(); }
-};
-
-$("#btnHome").onclick=()=>alert('In Safari: Teilen (Quadrat mit Pfeil) → „Zum Home-Bildschirm“. Dann über die Kachel öffnen.');
-
-sessionSel.value=localStorage.getItem(LS_LAST)||"night_upper";
+// Init
+sessionSel.value = localStorage.getItem(LS_LAST) || "night_upper";
 renderPlan();
 </script>
 </body>
